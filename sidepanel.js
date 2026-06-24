@@ -64,7 +64,11 @@ function renderSettingsForm() {
   el.apiKeyInput.value = apiKeys[state.settings.provider] || '';
 
   // 模型 — 从每个服务商独立的模型池读取
-  const models = state.settings._models || [];
+  const savedModelLists = state.settings.savedModelLists || {};
+  if (!state.settings._models || !state.settings._models.length) {
+    state.settings._models = savedModelLists[state.settings.provider] || [];
+  }
+  const models = state.settings._models;
   const savedModels = state.settings.savedModels || {};
   const savedModel = savedModels[state.settings.provider] || '';
   el.modelSelect.innerHTML =
@@ -290,7 +294,7 @@ async function sendToAPI() {
 
   try {
     const settings = state.settings;
-    const model = state.currentSession.model || settings.model;
+    const model = settings.model || state.currentSession.model;
 
     // 构建消息列表，粗略估计 token 数量
     let messages = state.currentSession.messages
@@ -498,22 +502,47 @@ function bindEvents() {
     const savedModels = state.settings.savedModels || {};
     savedModels[oldProvider] = el.modelSelect.value;
 
+    // 保存当前服务商获取过的模型列表到独立池
+    const savedModelLists = state.settings.savedModelLists || {};
+    savedModelLists[oldProvider] = state.settings._models || [];
+
     state.settings.provider = newProvider;
     state.settings.apiKeys = apiKeys;
     state.settings.savedModels = savedModels;
-    state.settings.apiKey = apiKeys[newProvider] || ''; // 用于 API 调用
-    state.settings.model = savedModels[newProvider] || '';
+    state.settings.savedModelLists = savedModelLists;
+    state.settings.apiKey = apiKeys[newProvider] || '';
+    state.settings._models = savedModelLists[newProvider] || [];
+    state.settings.model = savedModels[newProvider] || state.settings.model;
     updateBaseURLInput();
 
     // 加载新服务商独立保存的 Key
     el.apiKeyInput.value = apiKeys[newProvider] || '';
 
-    // 加载新服务商独立保存的模型列表与选中模型
-    state.settings._models = [];
-    const newSavedModel = savedModels[newProvider] || '';
-    el.modelSelect.innerHTML = newSavedModel
-      ? `<option value="">${t('settings.selectModel')}</option><option value="${newSavedModel}" selected>${newSavedModel}</option>`
-      : `<option value="">${t('settings.fetchModelsFirst')}</option>`;
+    // 加载新服务商的模型下拉
+    const newSavedModel = savedModels[newProvider] || state.settings.model;
+    const providerModels = state.settings._models;
+
+    if (providerModels.length > 0) {
+      // 有模型列表：保留完整列表，选中已保存的模型
+      el.modelSelect.innerHTML =
+        `<option value="">${t('settings.selectModel')}</option>` +
+        providerModels
+          .map(
+            (m) =>
+              `<option value="${m.id || m}">${m.id || m}</option>`
+          )
+          .join('');
+      if (newSavedModel) el.modelSelect.value = newSavedModel;
+    } else if (newSavedModel) {
+      // 只有已保存的模型名，没有列表
+      el.modelSelect.innerHTML =
+        `<option value="">${t('settings.selectModel')}</option>` +
+        `<option value="${newSavedModel}">${newSavedModel}</option>`;
+      el.modelSelect.value = newSavedModel;
+    } else {
+      // 没有任何记录
+      el.modelSelect.innerHTML = `<option value="">${t('settings.fetchModelsFirst')}</option>`;
+    }
   });
 
   el.fetchModelsBtn.addEventListener('click', async () => {
@@ -616,12 +645,26 @@ function bindEvents() {
         ...(state.settings.savedModels || {}),
         [provider]: model,
       },
+      savedModelLists: {
+        ...(state.settings.savedModelLists || {}),
+        [provider]: state.settings._models || [],
+      },
     };
 
     await Storage.saveSettings(state.settings);
     hideSettingsPanel();
     updateModelIndicator();
     showToast(t('toast.saveSuccess'), 'success');
+
+    // 同步更新当前会话的模型与服务商
+    if (state.currentSession) {
+      state.currentSession.model = model;
+      state.currentSession.provider = provider;
+      state.currentSession.updatedAt = Date.now();
+      await Storage.saveSession(state.currentSession);
+      renderMessages();
+      renderSessions();
+    }
 
     // 如果没有当前会话，创建一个
     if (!state.currentSession) {

@@ -9,17 +9,70 @@ marked.setOptions({
 
 const Renderer = {
   /**
-   * 渲染 Markdown 内容为 HTML
+   * 渲染 Markdown 内容为 HTML（支持 LaTeX 公式）
    * @param {string} content - Markdown 文本
    * @returns {string} HTML 字符串
    */
   renderMarkdown(content) {
     if (!content) return '';
+
+    // 预处理 LaTeX 公式（用占位符替换，避免 marked 干扰）
+    const { text, latexMap } = this._extractLatex(content);
+
     try {
-      return marked.parse(content);
+      let html = marked.parse(text);
+
+      // 将占位符替换为渲染后的 KaTeX HTML
+      html = html.replace(/\x00LATEX_(\d+)\x00/g, (_, id) => {
+        return latexMap[parseInt(id)] || '';
+      });
+
+      return html;
     } catch {
       return `<p>${this._escapeHtml(content)}</p>`;
     }
+  },
+
+  /**
+   * 提取并渲染 LaTeX 公式，替换为不可见占位符
+   * @param {string} content
+   * @returns {{ text: string, latexMap: string[] }}
+   */
+  _extractLatex(content) {
+    const latexMap = [];
+    let counter = 0;
+    const placeholder = (html) => {
+      const key = `\x00LATEX_${counter}\x00`;
+      latexMap[counter++] = html;
+      return key;
+    };
+
+    // 1) 块级公式 $$...$$
+    let processed = content.replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
+      const trimmed = expr.trim();
+      if (!trimmed) return '$$$$';
+      if (typeof katex === 'undefined') return `<pre><code>$$${trimmed}$$</code></pre>`;
+      try {
+        return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }));
+      } catch {
+        return `<pre><code>$$${trimmed}$$</code></pre>`;
+      }
+    });
+
+    // 2) 行内公式 $...$
+    // 规则：不以 $ 开头，不跨行，非纯数字（避免匹配 $10.99）
+    processed = processed.replace(/(^|[^$])\$(\S[^$\n]*?\S)\$(?!\$)/g, (match, before, expr) => {
+      // 跳过纯数字（如 $10, $3.99）
+      if (/^\d+([.,]\d+)?$/.test(expr)) return match;
+      if (typeof katex === 'undefined') return before + `<code>$${expr}$</code>`;
+      try {
+        return before + placeholder(katex.renderToString(expr.trim(), { throwOnError: false }));
+      } catch {
+        return match;
+      }
+    });
+
+    return { text: processed, latexMap };
   },
 
   /**

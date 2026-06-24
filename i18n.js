@@ -44,6 +44,7 @@ const DEFAULT_SETTINGS = {
   language: 'zh',
   apiKeys: {},
   savedModels: {},
+  savedModelLists: {},
 };
 
 // ============= 多语言系统 =============
