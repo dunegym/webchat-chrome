@@ -1,0 +1,14 @@
+# Dependencies
+lib/marked.min.js
+lib/highlight.min.js
+lib/github-dark.min.css
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

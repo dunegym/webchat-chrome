@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebChat AI</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="lib/github-dark.min.css" />
+  <meta name="color-scheme" content="dark" />
+</head>
+<body>
+
+  <!-- ============ 设置面板 ============ -->
+  <div id="settings-panel" class="settings-panel hidden">
+    <h2>⚙️ 设置</h2>
+    <form id="settings-form">
+      <div class="form-group">
+        <label for="provider-select">服务商</label>
+        <select id="provider-select"></select>
+      </div>
+      <div class="form-group">
+        <label for="baseurl-input">Base URL</label>
+        <input type="url" id="baseurl-input" placeholder="API Base URL" />
+      </div>
+      <div class="form-group">
+        <label for="apikey-input">API Key</label>
+        <input type="password" id="apikey-input" placeholder="sk-..." />
+      </div>
+      <div class="form-group">
+        <label for="model-select">模型</label>
+        <div class="model-row">
+          <select id="model-select">
+            <option value="">-- 请先获取模型列表 --</option>
+          </select>
+          <button type="button" id="fetch-models-btn" class="btn-secondary">获取列表</button>
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button type="button" id="cancel-settings-btn" class="btn-secondary">返回</button>
+        <button type="button" id="save-settings-btn" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ============ 聊天视图 ============ -->
+  <div id="chat-view" class="chat-view">
+    <!-- 顶栏 -->
+    <div id="top-bar" class="top-bar">
+      <button id="toggle-sessions-btn" class="icon-btn" title="对话列表">☰</button>
+      <span id="model-indicator" class="model-indicator">未配置</span>
+      <div class="top-bar-actions">
+        <button id="new-session-btn" class="icon-btn" title="新建对话">＋</button>
+        <button id="settings-btn" class="icon-btn" title="设置">⚙️</button>
+      </div>
+    </div>
+
+    <!-- 会话列表 -->
+    <div id="sessions-panel" class="sessions-panel hidden">
+      <div class="sessions-header">
+        <span>对话历史</span>
+        <button id="close-sessions-btn" class="icon-btn">✕</button>
+      </div>
+      <div id="sessions-list"></div>
+    </div>
+
+    <!-- 消息区域 -->
+    <div id="messages-container" class="messages-container">
+      <div id="messages">
+        <div class="welcome-message">👋 欢迎使用 WebChat AI<br/><br/>点击 ⚙️ 配置 API 设置后开始对话</div>
+      </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div id="input-area" class="input-area">
+      <textarea id="message-input" placeholder="输入消息...（Enter 发送，Shift+Enter 换行）" rows="1"></textarea>
+      <button id="send-btn" disabled>发送</button>
+    </div>
+  </div>
+
+  <!-- ============ 遮罩层 ============ -->
+  <div id="overlay" class="overlay hidden"></div>
+
+  <!-- ============ 库 ============ -->
+  <script src="lib/marked.min.js"></script>
+  <script src="lib/highlight.min.js"></script>
+  <script src="i18n.js"></script>
+  <script src="storage.js"></script>
+  <script src="api.js"></script>
+  <script src="renderer.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
