@@ -47,7 +47,7 @@ const Renderer = {
       return key;
     };
 
-    // 1) 块级公式 $$...$$
+    // 1) 块级公式 $$...$$ 或 \[...\]
     let processed = content.replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
       const trimmed = expr.trim();
       if (!trimmed) return '$$$$';
@@ -56,6 +56,19 @@ const Renderer = {
         return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }));
       } catch {
         return `<pre><code>$$${trimmed}$$</code></pre>`;
+      }
+    });
+
+    // 1b) 块级公式 \[...\]（反斜杠中括号）
+    processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, expr) => {
+      const trimmed = expr.trim();
+      if (!trimmed) return '[]';
+      if (typeof katex === 'undefined') return `<pre><code>${_.replace(/\\/g,'')}</code></pre>`;
+      try {
+        return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }));
+      } catch {
+        // 渲染失败时回退为纯文本（去掉反斜杠）
+        return _.replace(/\\/g, '');
       }
     });
 
@@ -69,6 +82,18 @@ const Renderer = {
         return before + placeholder(katex.renderToString(expr.trim(), { throwOnError: false }));
       } catch {
         return match;
+      }
+    });
+
+    // 2b) 行内公式 \(...\)（反斜杠圆括号）
+    processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (match, expr) => {
+      const trimmed = expr.trim();
+      if (!trimmed) return '()';
+      if (typeof katex === 'undefined') return `(${trimmed})`;
+      try {
+        return placeholder(katex.renderToString(trimmed, { throwOnError: false }));
+      } catch {
+        return match.replace(/\\/g, '');
       }
     });
 
