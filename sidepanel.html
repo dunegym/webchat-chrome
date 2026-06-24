@@ -12,32 +12,34 @@
 
   <!-- ============ 设置面板 ============ -->
   <div id="settings-panel" class="settings-panel hidden">
-    <h2>⚙️ 设置</h2>
+    <h2 data-i18n="settings.title">⚙️ 设置</h2>
     <form id="settings-form">
       <div class="form-group">
-        <label for="provider-select">服务商</label>
+        <label for="provider-select" data-i18n="settings.provider">服务商</label>
         <select id="provider-select"></select>
       </div>
       <div class="form-group">
-        <label for="baseurl-input">Base URL</label>
-        <input type="url" id="baseurl-input" placeholder="API Base URL" />
+        <label for="baseurl-input" data-i18n="settings.baseURL">Base URL</label>
+        <input type="url" id="baseurl-input" />
       </div>
       <div class="form-group">
-        <label for="apikey-input">API Key</label>
-        <input type="password" id="apikey-input" placeholder="sk-..." />
+        <label for="apikey-input" data-i18n="settings.apiKey">API Key</label>
+        <input type="password" id="apikey-input" />
       </div>
       <div class="form-group">
-        <label for="model-select">模型</label>
+        <label for="model-select" data-i18n="settings.model">模型</label>
         <div class="model-row">
-          <select id="model-select">
-            <option value="">-- 请先获取模型列表 --</option>
-          </select>
-          <button type="button" id="fetch-models-btn" class="btn-secondary">获取列表</button>
+          <select id="model-select"></select>
+          <button type="button" id="fetch-models-btn" class="btn-secondary" data-i18n="settings.fetchModels">获取列表</button>
         </div>
       </div>
+      <div class="form-group">
+        <label for="language-select" data-i18n="settings.language">语言 / Language</label>
+        <select id="language-select"></select>
+      </div>
       <div class="settings-actions">
-        <button type="button" id="cancel-settings-btn" class="btn-secondary">返回</button>
-        <button type="button" id="save-settings-btn" class="btn-primary">保存</button>
+        <button type="button" id="cancel-settings-btn" class="btn-secondary" data-i18n="settings.cancel">返回</button>
+        <button type="button" id="save-settings-btn" class="btn-primary" data-i18n="settings.save">保存</button>
       </div>
     </form>
   </div>
@@ -46,19 +48,19 @@
   <div id="chat-view" class="chat-view">
     <!-- 顶栏 -->
     <div id="top-bar" class="top-bar">
-      <button id="toggle-sessions-btn" class="icon-btn" title="对话列表">☰</button>
+      <button id="toggle-sessions-btn" class="icon-btn" data-i18n-title="chat.sessionList" title="对话列表">☰</button>
       <span id="model-indicator" class="model-indicator">未配置</span>
       <div class="top-bar-actions">
-        <button id="new-session-btn" class="icon-btn" title="新建对话">＋</button>
-        <button id="settings-btn" class="icon-btn" title="设置">⚙️</button>
+        <button id="new-session-btn" class="icon-btn" data-i18n-title="chat.newSession" title="新建对话">＋</button>
+        <button id="settings-btn" class="icon-btn" data-i18n-title="chat.settings" title="设置">⚙️</button>
       </div>
     </div>
 
     <!-- 会话列表 -->
     <div id="sessions-panel" class="sessions-panel hidden">
       <div class="sessions-header">
-        <span>对话历史</span>
-        <button id="close-sessions-btn" class="icon-btn">✕</button>
+        <span data-i18n="chat.sessionsTitle">对话历史</span>
+        <button id="close-sessions-btn" class="icon-btn" data-i18n-title="chat.close" title="关闭">✕</button>
       </div>
       <div id="sessions-list"></div>
     </div>
@@ -73,7 +75,7 @@
     <!-- 输入区域 -->
     <div id="input-area" class="input-area">
       <textarea id="message-input" placeholder="输入消息...（Enter 发送，Shift+Enter 换行）" rows="1"></textarea>
-      <button id="send-btn" disabled>发送</button>
+      <button id="send-btn" disabled data-i18n="chat.send">发送</button>
     </div>
   </div>
 

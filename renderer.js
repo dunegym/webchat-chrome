@@ -44,7 +44,7 @@ const Renderer = {
 
       const btn = document.createElement('button');
       btn.className = 'copy-btn';
-      btn.textContent = '复制';
+      btn.textContent = t('ui.copy');
 
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -53,14 +53,14 @@ const Renderer = {
 
         try {
           await navigator.clipboard.writeText(text);
-          btn.textContent = '已复制!';
+          btn.textContent = t('ui.copied');
           setTimeout(() => {
-            btn.textContent = '复制';
+            btn.textContent = t('ui.copy');
           }, 2000);
         } catch {
-          btn.textContent = '失败';
+          btn.textContent = t('ui.copyFailed');
           setTimeout(() => {
-            btn.textContent = '复制';
+            btn.textContent = t('ui.copy');
           }, 2000);
         }
       });

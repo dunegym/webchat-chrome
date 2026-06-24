@@ -43,6 +43,7 @@ function cacheDom() {
   el.saveSettingsBtn = $('#save-settings-btn');
   el.cancelSettingsBtn = $('#cancel-settings-btn');
   el.fetchModelsBtn = $('#fetch-models-btn');
+  el.languageSelect = $('#language-select');
 }
 
 // ============= Settings UI =============
@@ -67,7 +68,7 @@ function renderSettingsForm() {
   const savedModels = state.settings.savedModels || {};
   const savedModel = savedModels[state.settings.provider] || '';
   el.modelSelect.innerHTML =
-    '<option value="">-- 选择模型 --</option>' +
+    `<option value="">${t('settings.selectModel')}</option>` +
     models
       .map(
         (m) =>
@@ -78,17 +79,25 @@ function renderSettingsForm() {
     el.modelSelect.innerHTML +=
       `<option value="${savedModel}" selected>${savedModel}</option>`;
   }
+
+  // 语言选择器
+  el.languageSelect.innerHTML = Object.entries(LANGUAGES)
+    .map(
+      ([key, name]) =>
+        `<option value="${key}" ${key === (state.settings.language || 'zh') ? 'selected' : ''}>${name}</option>`
+    )
+    .join('');
 }
 
 function updateBaseURLInput() {
   const provider = state.settings.provider;
   if (provider === 'custom') {
     el.baseURLInput.value = state.settings.customBaseURL || '';
-    el.baseURLInput.placeholder = '输入自定义 API Base URL';
+    el.baseURLInput.placeholder = t('settings.customBaseURLPH');
   } else {
     const p = PROVIDERS[provider];
     el.baseURLInput.value = p ? p.baseURL : '';
-    el.baseURLInput.placeholder = 'API Base URL';
+    el.baseURLInput.placeholder = t('settings.baseURLPH');
   }
 }
 
@@ -97,7 +106,7 @@ async function renderSessions() {
   state.sessions = await Storage.getSessions();
 
   if (!state.sessions.length) {
-    el.sessionsList.innerHTML = '<div class="empty-sessions">暂无对话</div>';
+    el.sessionsList.innerHTML = `<div class="empty-sessions">${t('chat.noSessions')}</div>`;
     return;
   }
 
@@ -105,7 +114,7 @@ async function renderSessions() {
     .map(
       (s) => `
     <div class="session-item ${s.id === state.currentSessionId ? 'active' : ''}" data-id="${s.id}">
-      <span class="session-title">${escapeHtml(s.title || '新对话')}</span>
+      <span class="session-title">${escapeHtml(s.title || t('chat.newChat'))}</span>
       <button class="session-delete-btn" data-id="${s.id}">✕</button>
     </div>`
     )
@@ -123,7 +132,7 @@ async function renderSessions() {
   el.sessionsList.querySelectorAll('.session-delete-btn').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('确定删除此对话？')) return;
+      if (!confirm(t('toast.deleteConfirm'))) return;
       const id = btn.dataset.id;
       await Storage.deleteSession(id);
       if (id === state.currentSessionId) {
@@ -141,7 +150,7 @@ async function renderSessions() {
 // ============= Messages UI =============
 function renderMessages() {
   if (!state.currentSession || !state.currentSession.messages.length) {
-    el.messages.innerHTML = '<div class="welcome-message">💬 开始新对话吧</div>';
+    el.messages.innerHTML = `<div class="welcome-message">${t('chat.welcome')}</div>`;
     return;
   }
 
@@ -174,8 +183,8 @@ function scrollToBottom() {
 function updateModelIndicator() {
   const p = PROVIDERS[state.settings.provider];
   const providerName = p ? p.name : state.settings.provider;
-  const model = state.settings.model || state.currentSession?.model || '未选择';
-  el.modelIndicator.textContent = `${providerName} / ${model}`;
+  const model = state.settings.model || state.currentSession?.model || t('status.notSelected');
+  el.modelIndicator.textContent = t('chat.modelIndicator', { provider: providerName, model });
 }
 
 // ============= Session Actions =============
@@ -204,13 +213,13 @@ async function newSession() {
   }
 
   if (!state.settings.apiKey || !state.settings.model) {
-    showToast('请先在设置中配置 API Key 和模型', 'error');
+    showToast(t('error.configureFirst'), 'error');
     return;
   }
 
   const session = {
     id: Storage.generateId(),
-    title: '新对话',
+    title: t('chat.newChat'),
     messages: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -228,7 +237,7 @@ async function handleSend() {
   if (!content || state.isStreaming) return;
 
   if (!state.settings.apiKey || !state.settings.model) {
-    showToast('请先在设置中配置 API Key 和模型', 'error');
+    showToast(t('error.configureFirst'), 'error');
     return;
   }
 
@@ -289,7 +298,7 @@ async function sendToAPI() {
       .map((m) => ({ role: m.role, content: m.content }));
 
     // 在开头添加系统消息
-    messages.unshift({ role: 'system', content: 'You are a helpful assistant.' });
+    messages.unshift({ role: 'system', content: t('system.prompt') });
 
     // 粗略 token 估算：中文字符 ≈ 2 token，其他 ≈ 4 字符/token
     // 如果超过 120K token，截断早期的对话
@@ -312,7 +321,7 @@ async function sendToAPI() {
       // 添加截断提示
       messages.splice(1, 0, {
         role: 'system',
-        content: '(前面的部分对话因上下文过长已被截断)',
+        content: t('system.truncated'),
       });
     }
 
@@ -361,9 +370,9 @@ async function sendToAPI() {
     removeLoadingIndicator();
 
     if (err.name === 'AbortError') {
-      aiMsg.content = '[已取消]';
+      aiMsg.content = `**[${t('error.cancelled')}]**`;
     } else {
-      aiMsg.content = `**错误**: ${err.message}`;
+      aiMsg.content = `**${t('error.networkError')}**: ${err.message}`;
     }
 
     state.currentSession.updatedAt = Date.now();
@@ -500,11 +509,11 @@ function bindEvents() {
     el.apiKeyInput.value = apiKeys[newProvider] || '';
 
     // 加载新服务商独立保存的模型列表与选中模型
-    state.settings._models = []; // 不同服务商模型列表不同，先清空
+    state.settings._models = [];
     const newSavedModel = savedModels[newProvider] || '';
     el.modelSelect.innerHTML = newSavedModel
-      ? `<option value="">-- 选择模型 --</option><option value="${newSavedModel}" selected>${newSavedModel}</option>`
-      : '<option value="">-- 请先获取模型列表 --</option>';
+      ? `<option value="">${t('settings.selectModel')}</option><option value="${newSavedModel}" selected>${newSavedModel}</option>`
+      : `<option value="">${t('settings.fetchModelsFirst')}</option>`;
   });
 
   el.fetchModelsBtn.addEventListener('click', async () => {
@@ -512,16 +521,16 @@ function bindEvents() {
     const apiKey = el.apiKeyInput.value.trim();
 
     if (!baseURL) {
-      showToast('请填写 Base URL', 'error');
+      showToast(t('error.fillBaseURL'), 'error');
       return;
     }
     if (!apiKey) {
-      showToast('请填写 API Key', 'error');
+      showToast(t('error.fillApiKey'), 'error');
       return;
     }
 
     el.fetchModelsBtn.disabled = true;
-    el.fetchModelsBtn.textContent = '获取中...';
+    el.fetchModelsBtn.textContent = t('status.loading');
 
     try {
       const models = await API.fetchModelList(baseURL, apiKey);
@@ -538,9 +547,10 @@ function bindEvents() {
       const prevModel = savedModels[state.settings.provider] || '';
       const modelStillExists = prevModel && models.some((m) => (m.id || m) === prevModel);
 
-      // 更新模型下拉
+      // 更新模型下拉 — 使用同名选项
+      const selectPlaceholder = t('settings.selectModel');
       el.modelSelect.innerHTML =
-        '<option value="">-- 选择模型 --</option>' +
+        `<option value="">${selectPlaceholder}</option>` +
         models
           .map(
             (m) =>
@@ -554,13 +564,13 @@ function bindEvents() {
       }
       el.modelSelect.disabled = false;
 
-      showToast(`✅ 获取成功，共 ${models.length} 个模型`, 'success');
+      showToast(t('toast.fetchSuccess', { count: models.length }), 'success');
     } catch (err) {
-      showToast(`❌ 获取失败: ${err.message}`, 'error');
+      showToast(t('toast.fetchFailed', { msg: err.message }), 'error');
     }
 
     el.fetchModelsBtn.disabled = false;
-    el.fetchModelsBtn.textContent = '获取模型列表';
+    el.fetchModelsBtn.textContent = t('status.fetchModels');
   });
 
   // 不保存直接返回
@@ -575,23 +585,27 @@ function bindEvents() {
     const model = el.modelSelect.value;
 
     if (!apiKey) {
-      showToast('请输入 API Key', 'error');
+      showToast(t('error.inputApiKey'), 'error');
       return;
     }
     if (!baseURL) {
-      showToast('请输入 Base URL', 'error');
+      showToast(t('error.inputBaseURL'), 'error');
       return;
     }
     if (!model) {
-      showToast('请选择模型', 'error');
+      showToast(t('error.selectModel'), 'error');
       return;
     }
+
+    // 保存语言偏好
+    const language = el.languageSelect?.value || state.settings.language || 'zh';
 
     state.settings = {
       provider,
       baseURL,
       apiKey,
       model,
+      language,
       customBaseURL: provider === 'custom' ? baseURL : '',
       _models: state.settings._models || [],
       apiKeys: {
@@ -607,12 +621,30 @@ function bindEvents() {
     await Storage.saveSettings(state.settings);
     hideSettingsPanel();
     updateModelIndicator();
-    showToast('✅ 设置已保存', 'success');
+    showToast(t('toast.saveSuccess'), 'success');
 
     // 如果没有当前会话，创建一个
     if (!state.currentSession) {
       await newSession();
     }
+  });
+
+  // ---- Language ----
+  el.languageSelect?.addEventListener('change', () => {
+    const lang = el.languageSelect.value;
+    setLanguage(lang);
+    applyLanguage();
+    // 更新动态文本
+    updateBaseURLInput();
+    updateModelIndicator();
+    // 刷新模型下拉的同名选项
+    const selectPlaceholder = t('settings.selectModel');
+    const options = el.modelSelect.querySelectorAll('option');
+    if (options.length > 0) options[0].textContent = selectPlaceholder;
+    // 更新输入框占位符
+    el.input.placeholder = t('chat.placeholder');
+    // 更新 API Key input placeholder
+    el.apiKeyInput.placeholder = t('settings.apiKeyPH');
   });
 
   // ---- Chat ----
@@ -656,6 +688,12 @@ async function init() {
 
   // 加载设置
   state.settings = await Storage.getSettings();
+
+  // 应用语言设置
+  setLanguage(state.settings.language || 'zh');
+  applyLanguage();
+  el.input.placeholder = t('chat.placeholder');
+  el.apiKeyInput.placeholder = t('settings.apiKeyPH');
 
   // 检查是否已配置
   if (!state.settings.apiKey) {
