@@ -289,8 +289,9 @@ async function sendToAPI() {
   const aiMsg = { role: 'assistant', content: '', timestamp: Date.now() };
   state.currentSession.messages.push(aiMsg);
 
-  // 显示加载动画
-  showLoadingIndicator();
+  // 显示流式消息容器（打字动画）
+  resetStreamingState();
+  showTypingIndicator();
 
   try {
     const settings = state.settings;
@@ -332,14 +333,12 @@ async function sendToAPI() {
     let accumulatedContent = '';
 
     // requestAnimationFrame 节流：控制 DOM 更新频率
-    let rafPending = false;
+    let rafId = null;
     const throttledUpdate = (fullContent) => {
       accumulatedContent = fullContent;
-      if (!rafPending) {
-        rafPending = true;
-        requestAnimationFrame(() => {
-          rafPending = false;
-          removeLoadingIndicator();
+      if (!rafId) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
           updateStreamingMessage(accumulatedContent);
         });
       }
@@ -356,10 +355,10 @@ async function sendToAPI() {
       },
     });
 
-    // 确保最后一次 rAF 已执行
-    if (rafPending) {
-      rafPending = false;
-      removeLoadingIndicator();
+    // 取消并刷新最后一次 rAF（防止回调在 renderMessages 后触发导致重复）
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
       updateStreamingMessage(accumulatedContent);
     }
 
@@ -367,12 +366,11 @@ async function sendToAPI() {
     aiMsg.content = accumulatedContent;
     state.currentSession.updatedAt = Date.now();
     await Storage.saveSession(state.currentSession);
+    resetStreamingState();
 
     // 最终渲染（带代码高亮）
     renderMessages();
   } catch (err) {
-    removeLoadingIndicator();
-
     if (err.name === 'AbortError') {
       aiMsg.content = `**[${t('error.cancelled')}]**`;
     } else {
@@ -381,6 +379,7 @@ async function sendToAPI() {
 
     state.currentSession.updatedAt = Date.now();
     await Storage.saveSession(state.currentSession);
+    resetStreamingState();
     renderMessages();
   }
 
@@ -390,42 +389,52 @@ async function sendToAPI() {
 }
 
 // ============= Streaming UI Helpers =============
-function showLoadingIndicator() {
-  removeLoadingIndicator();
+
+/** 当前正在流式刷新的消息 DOM 元素引用 */
+let _streamingEl = null;
+
+/** 创建或返回流式消息元素，在消息列表末尾插入一个真实的 assistant 结构 */
+function ensureStreamingElement() {
+  if (_streamingEl && document.contains(_streamingEl)) {
+    return _streamingEl;
+  }
   const div = document.createElement('div');
   div.className = 'message assistant';
-  div.id = 'loading-indicator';
-  div.innerHTML = `
-    <div class="message-avatar">🤖</div>
-    <div class="message-content">
-      <div class="typing-indicator"><span></span><span></span><span></span></div>
-    </div>`;
+  div.innerHTML = '<div class="message-avatar">🤖</div><div class="message-content"></div>';
   el.messages.appendChild(div);
+  _streamingEl = div;
+  scrollToBottom();
+  return div;
+}
+
+/** 显示打字动画（替换 loading indicator） */
+function showTypingIndicator() {
+  const el_ = ensureStreamingElement();
+  el_.querySelector('.message-content').innerHTML =
+    '<div class="typing-indicator"><span></span><span></span><span></span></div>';
   scrollToBottom();
 }
 
-function removeLoadingIndicator() {
-  document.getElementById('loading-indicator')?.remove();
+/** 更新流式消息内容 */
+function updateStreamingMessage(content) {
+  const el_ = ensureStreamingElement();
+  const contentEl = el_.querySelector('.message-content');
+  if (!contentEl) return;
+  contentEl.innerHTML = Renderer.renderMarkdown(content);
+  Renderer.highlightAll();
+  Renderer.addCopyButtons();
+
+  // 如果用户接近底部（100px 内），自动跟随
+  const { scrollTop, scrollHeight, clientHeight } = el.messagesContainer;
+  const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
+  if (nearBottom) {
+    el.messagesContainer.scrollTop = scrollHeight;
+  }
 }
 
-function updateStreamingMessage(content) {
-  const msgs = el.messages.querySelectorAll('.message.assistant');
-  const last = msgs[msgs.length - 1];
-  if (!last || last.id === 'loading-indicator') return;
-
-  const contentEl = last.querySelector('.message-content');
-  if (contentEl) {
-    contentEl.innerHTML = Renderer.renderMarkdown(content);
-    Renderer.highlightAll();
-    Renderer.addCopyButtons();
-
-    // 如果用户接近底部（100px 内），自动跟随
-    const { scrollTop, scrollHeight, clientHeight } = el.messagesContainer;
-    const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
-    if (nearBottom) {
-      el.messagesContainer.scrollTop = scrollHeight;
-    }
-  }
+/** 清除流式状态 */
+function resetStreamingState() {
+  _streamingEl = null;
 }
 
 // ============= Settings Panel =============
