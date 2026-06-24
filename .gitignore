@@ -15,3 +15,7 @@ Thumbs.db
 
 # Local config
 .claude/
+
+# Build artifacts
+*.crx
+*.pem
