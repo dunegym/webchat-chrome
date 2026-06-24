@@ -710,3 +710,19 @@ html, body {
 .error-message .retry-btn:hover {
   background: rgba(255, 71, 87, 0.15);
 }
+
+/* ---------- KaTeX long formula scroll ---------- */
+.katex-scrollable {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+}
+.katex-scrollable::-webkit-scrollbar {
+  height: 4px;
+}
+.katex-scrollable::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}

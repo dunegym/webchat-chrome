@@ -41,9 +41,14 @@ const Renderer = {
   _extractLatex(content) {
     const latexMap = [];
     let counter = 0;
-    const placeholder = (html) => {
+    const SCROLL_THRESHOLD = 80;
+    const placeholder = (html, expr) => {
       const key = `\x00LATEX_${counter}\x00`;
-      latexMap[counter++] = html;
+      if (expr && expr.length > SCROLL_THRESHOLD) {
+        latexMap[counter++] = `<div class="katex-scrollable">${html}</div>`;
+      } else {
+        latexMap[counter++] = html;
+      }
       return key;
     };
 
@@ -53,7 +58,7 @@ const Renderer = {
       if (!trimmed) return '$$$$';
       if (typeof katex === 'undefined') return `<pre><code>$$${trimmed}$$</code></pre>`;
       try {
-        return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }));
+        return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }), trimmed);
       } catch {
         return `<pre><code>$$${trimmed}$$</code></pre>`;
       }
@@ -65,21 +70,18 @@ const Renderer = {
       if (!trimmed) return '[]';
       if (typeof katex === 'undefined') return `<pre><code>${_.replace(/\\/g,'')}</code></pre>`;
       try {
-        return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }));
+        return placeholder(katex.renderToString(trimmed, { displayMode: true, throwOnError: false }), trimmed);
       } catch {
-        // 渲染失败时回退为纯文本（去掉反斜杠）
         return _.replace(/\\/g, '');
       }
     });
 
     // 2) 行内公式 $...$
-    // 规则：不以 $ 开头，不跨行，非纯数字（避免匹配 $10.99）
     processed = processed.replace(/(^|[^$])\$(\S[^$\n]*?\S)\$(?!\$)/g, (match, before, expr) => {
-      // 跳过纯数字（如 $10, $3.99）
       if (/^\d+([.,]\d+)?$/.test(expr)) return match;
       if (typeof katex === 'undefined') return before + `<code>$${expr}$</code>`;
       try {
-        return before + placeholder(katex.renderToString(expr.trim(), { throwOnError: false }));
+        return before + placeholder(katex.renderToString(expr.trim(), { throwOnError: false }), expr);
       } catch {
         return match;
       }
@@ -91,7 +93,7 @@ const Renderer = {
       if (!trimmed) return '()';
       if (typeof katex === 'undefined') return `(${trimmed})`;
       try {
-        return placeholder(katex.renderToString(trimmed, { throwOnError: false }));
+        return placeholder(katex.renderToString(trimmed, { throwOnError: false }), trimmed);
       } catch {
         return match.replace(/\\/g, '');
       }
