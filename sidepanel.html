@@ -17,7 +17,17 @@
     <form id="settings-form">
       <div class="form-group">
         <label for="provider-select" data-i18n="settings.provider">服务商</label>
-        <select id="provider-select"></select>
+        <div class="model-row">
+          <select id="provider-select"></select>
+          <button type="button" id="add-custom-provider-btn" class="btn-secondary" data-i18n="settings.addCustomProvider">添加自定义服务商</button>
+        </div>
+      </div>
+      <div class="form-group hidden" id="custom-provider-name-group">
+        <label for="custom-provider-name" data-i18n="settings.customProviderName">服务商名称</label>
+        <input type="text" id="custom-provider-name" data-i18n-placeholder="settings.customProviderNamePH" placeholder="例如：My API" />
+      </div>
+      <div class="form-group hidden" id="custom-provider-actions">
+        <button type="button" id="delete-custom-provider-btn" class="btn-secondary" data-i18n="settings.deleteCustomProvider">删除当前服务商</button>
       </div>
       <div class="form-group">
         <label for="baseurl-input" data-i18n="settings.baseURL">Base URL</label>

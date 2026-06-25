@@ -44,33 +44,129 @@ function cacheDom() {
   el.cancelSettingsBtn = $('#cancel-settings-btn');
   el.fetchModelsBtn = $('#fetch-models-btn');
   el.languageSelect = $('#language-select');
+
+  el.customProviderNameInput = $('#custom-provider-name');
+  el.customProviderNameGroup = $('#custom-provider-name-group');
+  el.customProviderActions = $('#custom-provider-actions');
+  el.addCustomProviderBtn = $('#add-custom-provider-btn');
+  el.deleteCustomProviderBtn = $('#delete-custom-provider-btn');
+}
+
+// ============= Provider Helpers =============
+function isCustomProvider(provider) {
+  return typeof provider === 'string' && provider.startsWith('custom:');
+}
+
+function getCustomProviderId(provider) {
+  return provider.slice(7);
+}
+
+function getCustomProvider(provider) {
+  if (!isCustomProvider(provider)) return null;
+  return state.settings?.customProviders?.[getCustomProviderId(provider)] || null;
+}
+
+function getProviderName(provider) {
+  if (isCustomProvider(provider)) {
+    return getCustomProvider(provider)?.name || t('settings.customProvider');
+  }
+  return PROVIDERS[provider]?.name || provider;
+}
+
+function getProviderBaseURL(provider) {
+  if (isCustomProvider(provider)) {
+    return getCustomProvider(provider)?.baseURL || '';
+  }
+  return PROVIDERS[provider]?.baseURL || '';
+}
+
+function getProviderAPIKey(provider) {
+  return state.settings?.apiKeys?.[provider] || '';
+}
+
+function getProviderModel(provider) {
+  return state.settings?.savedModels?.[provider] || '';
+}
+
+function getProviderModelList(provider) {
+  return state.settings?.savedModelLists?.[provider] || [];
+}
+
+/**
+ * 迁移旧版单个 custom 服务商到新的多自定义服务商结构
+ */
+function migrateLegacyCustomProvider(settings) {
+  const hasLegacy =
+    settings.provider === 'custom' ||
+    settings.customBaseURL ||
+    settings.apiKeys?.custom;
+  if (!hasLegacy) return settings;
+
+  const id = Storage.generateId();
+  settings.customProviders = settings.customProviders || {};
+  settings.customProviders[id] = {
+    id,
+    name: t('settings.customProvider'),
+    baseURL: settings.customBaseURL || '',
+  };
+
+  if (settings.apiKeys?.custom) {
+    settings.apiKeys[`custom:${id}`] = settings.apiKeys.custom;
+    delete settings.apiKeys.custom;
+  }
+  if (settings.savedModels?.custom) {
+    settings.savedModels[`custom:${id}`] = settings.savedModels.custom;
+    delete settings.savedModels.custom;
+  }
+  if (settings.savedModelLists?.custom) {
+    settings.savedModelLists[`custom:${id}`] = settings.savedModelLists.custom;
+    delete settings.savedModelLists.custom;
+  }
+
+  if (settings.provider === 'custom') {
+    settings.provider = `custom:${id}`;
+  }
+  settings.customBaseURL = '';
+  return settings;
 }
 
 // ============= Settings UI =============
 function renderSettingsForm() {
-  // 服务商下拉
-  el.providerSelect.innerHTML = Object.entries(PROVIDERS)
-    .map(
-      ([key, p]) =>
-        `<option value="${key}" ${key === state.settings.provider ? 'selected' : ''}>${p.name}</option>`
-    )
-    .join('');
+  const provider = state.settings.provider;
+  const customProviders = state.settings.customProviders || {};
+
+  // 服务商下拉：预设 + 自定义
+  el.providerSelect.innerHTML = [
+    ...Object.entries(PROVIDERS).map(
+      ([key, p]) => `<option value="${key}" ${key === provider ? 'selected' : ''}>${p.name}</option>`
+    ),
+    ...Object.entries(customProviders).map(([id, cp]) => {
+      const key = `custom:${id}`;
+      return `<option value="${key}" ${key === provider ? 'selected' : ''}>${cp.name || t('settings.customProvider')}</option>`;
+    }),
+  ].join('');
+
+  // 自定义服务商名称输入与删除按钮
+  const isCustom = isCustomProvider(provider);
+  el.customProviderNameGroup.classList.toggle('hidden', !isCustom);
+  el.customProviderActions.classList.toggle('hidden', !isCustom);
+  if (isCustom) {
+    const cp = getCustomProvider(provider);
+    el.customProviderNameInput.value = cp?.name || '';
+  }
 
   // Base URL
   updateBaseURLInput();
 
   // API Key — 从每个服务商独立的存储池读取
-  const apiKeys = state.settings.apiKeys || {};
-  el.apiKeyInput.value = apiKeys[state.settings.provider] || '';
+  el.apiKeyInput.value = getProviderAPIKey(provider);
 
   // 模型 — 从每个服务商独立的模型池读取
-  const savedModelLists = state.settings.savedModelLists || {};
   if (!state.settings._models || !state.settings._models.length) {
-    state.settings._models = savedModelLists[state.settings.provider] || [];
+    state.settings._models = getProviderModelList(provider);
   }
   const models = state.settings._models;
-  const savedModels = state.settings.savedModels || {};
-  const savedModel = savedModels[state.settings.provider] || '';
+  const savedModel = getProviderModel(provider);
   el.modelSelect.innerHTML =
     `<option value="">${t('settings.selectModel')}</option>` +
     models
@@ -95,14 +191,10 @@ function renderSettingsForm() {
 
 function updateBaseURLInput() {
   const provider = state.settings.provider;
-  if (provider === 'custom') {
-    el.baseURLInput.value = state.settings.customBaseURL || '';
-    el.baseURLInput.placeholder = t('settings.customBaseURLPH');
-  } else {
-    const p = PROVIDERS[provider];
-    el.baseURLInput.value = p ? p.baseURL : '';
-    el.baseURLInput.placeholder = t('settings.baseURLPH');
-  }
+  el.baseURLInput.value = getProviderBaseURL(provider);
+  el.baseURLInput.placeholder = isCustomProvider(provider)
+    ? t('settings.customBaseURLPH')
+    : t('settings.baseURLPH');
 }
 
 // ============= Sessions UI =============
@@ -185,8 +277,7 @@ function scrollToBottom() {
 
 // ============= Model Indicator =============
 function updateModelIndicator() {
-  const p = PROVIDERS[state.settings.provider];
-  const providerName = p ? p.name : state.settings.provider;
+  const providerName = getProviderName(state.settings.provider);
   const model = state.settings.model || state.currentSession?.model || t('status.notSelected');
   el.modelIndicator.textContent = t('chat.modelIndicator', { provider: providerName, model });
 }
@@ -503,32 +594,52 @@ function bindEvents() {
     const oldProvider = state.settings.provider;
     const newProvider = el.providerSelect.value;
 
-    // 将当前 Key 保存到旧服务商的独立池中
+    // 保存旧自定义服务商的元数据（名称、Base URL）
+    if (isCustomProvider(oldProvider)) {
+      const customProviders = state.settings.customProviders || {};
+      const cp = customProviders[getCustomProviderId(oldProvider)];
+      if (cp) {
+        cp.name = el.customProviderNameInput.value.trim() || t('settings.customProvider');
+        cp.baseURL = el.baseURLInput.value.trim();
+      }
+    }
+
+    // 将当前 Key / 模型 / 模型列表保存到旧服务商独立池中
     const apiKeys = state.settings.apiKeys || {};
     apiKeys[oldProvider] = el.apiKeyInput.value;
 
-    // 将当前模型名保存到旧服务商的独立池中
     const savedModels = state.settings.savedModels || {};
     savedModels[oldProvider] = el.modelSelect.value;
 
-    // 保存当前服务商获取过的模型列表到独立池
     const savedModelLists = state.settings.savedModelLists || {};
     savedModelLists[oldProvider] = state.settings._models || [];
 
+    // 切换当前激活服务商
     state.settings.provider = newProvider;
     state.settings.apiKeys = apiKeys;
     state.settings.savedModels = savedModels;
     state.settings.savedModelLists = savedModelLists;
+    state.settings.baseURL = getProviderBaseURL(newProvider);
     state.settings.apiKey = apiKeys[newProvider] || '';
     state.settings._models = savedModelLists[newProvider] || [];
-    state.settings.model = savedModels[newProvider] || state.settings.model;
+    state.settings.model = savedModels[newProvider] || '';
+
+    // 自定义服务商：显示/隐藏名称输入与删除按钮
+    const isCustom = isCustomProvider(newProvider);
+    el.customProviderNameGroup.classList.toggle('hidden', !isCustom);
+    el.customProviderActions.classList.toggle('hidden', !isCustom);
+    if (isCustom) {
+      const cp = getCustomProvider(newProvider);
+      el.customProviderNameInput.value = cp?.name || '';
+    }
+
     updateBaseURLInput();
 
     // 加载新服务商独立保存的 Key
     el.apiKeyInput.value = apiKeys[newProvider] || '';
 
     // 加载新服务商的模型下拉
-    const newSavedModel = savedModels[newProvider] || state.settings.model;
+    const newSavedModel = savedModels[newProvider] || '';
     const providerModels = state.settings._models;
 
     if (providerModels.length > 0) {
@@ -536,10 +647,7 @@ function bindEvents() {
       el.modelSelect.innerHTML =
         `<option value="">${t('settings.selectModel')}</option>` +
         providerModels
-          .map(
-            (m) =>
-              `<option value="${m.id || m}">${m.id || m}</option>`
-          )
+          .map((m) => `<option value="${m.id || m}">${m.id || m}</option>`)
           .join('');
       if (newSavedModel) el.modelSelect.value = newSavedModel;
     } else if (newSavedModel) {
@@ -552,6 +660,86 @@ function bindEvents() {
       // 没有任何记录
       el.modelSelect.innerHTML = `<option value="">${t('settings.fetchModelsFirst')}</option>`;
     }
+  });
+
+  // ---- Custom Provider Management ----
+  el.addCustomProviderBtn.addEventListener('click', () => {
+    const currentProvider = state.settings.provider;
+
+    // 如果当前是自定义服务商，先保存其名称与 Base URL
+    if (isCustomProvider(currentProvider)) {
+      const customProviders = state.settings.customProviders || {};
+      const cp = customProviders[getCustomProviderId(currentProvider)];
+      if (cp) {
+        cp.name = el.customProviderNameInput.value.trim() || t('settings.customProvider');
+        cp.baseURL = el.baseURLInput.value.trim();
+      }
+    }
+
+    // 保存当前服务商状态
+    const apiKeys = state.settings.apiKeys || {};
+    apiKeys[currentProvider] = el.apiKeyInput.value;
+    const savedModels = state.settings.savedModels || {};
+    savedModels[currentProvider] = el.modelSelect.value;
+    const savedModelLists = state.settings.savedModelLists || {};
+    savedModelLists[currentProvider] = state.settings._models || [];
+
+    // 创建新的自定义服务商
+    const id = Storage.generateId();
+    const newProvider = `custom:${id}`;
+    const customProviders = state.settings.customProviders || {};
+    customProviders[id] = {
+      id,
+      name: `${t('settings.customProvider')} ${Object.keys(customProviders).length + 1}`,
+      baseURL: '',
+    };
+
+    state.settings.provider = newProvider;
+    state.settings.customProviders = customProviders;
+    state.settings.apiKeys = apiKeys;
+    state.settings.savedModels = savedModels;
+    state.settings.savedModelLists = savedModelLists;
+    state.settings.baseURL = '';
+    state.settings.apiKey = '';
+    state.settings.model = '';
+    state.settings._models = [];
+
+    renderSettingsForm();
+  });
+
+  el.deleteCustomProviderBtn.addEventListener('click', () => {
+    const provider = state.settings.provider;
+    if (!isCustomProvider(provider)) return;
+
+    if (!confirm(t('toast.deleteCustomProviderConfirm'))) return;
+
+    const id = getCustomProviderId(provider);
+    const customProviders = { ...(state.settings.customProviders || {}) };
+    delete customProviders[id];
+
+    const apiKeys = { ...(state.settings.apiKeys || {}) };
+    delete apiKeys[provider];
+    const savedModels = { ...(state.settings.savedModels || {}) };
+    delete savedModels[provider];
+    const savedModelLists = { ...(state.settings.savedModelLists || {}) };
+    delete savedModelLists[provider];
+
+    // 切换到第一个可用服务商
+    const firstPreset = Object.keys(PROVIDERS)[0];
+    const firstCustom = Object.keys(customProviders)[0];
+    const newProvider = firstCustom ? `custom:${firstCustom}` : firstPreset;
+
+    state.settings.provider = newProvider;
+    state.settings.customProviders = customProviders;
+    state.settings.apiKeys = apiKeys;
+    state.settings.savedModels = savedModels;
+    state.settings.savedModelLists = savedModelLists;
+    state.settings.baseURL = getProviderBaseURL(newProvider);
+    state.settings.apiKey = apiKeys[newProvider] || '';
+    state.settings.model = savedModels[newProvider] || '';
+    state.settings._models = savedModelLists[newProvider] || [];
+
+    renderSettingsForm();
   });
 
   el.fetchModelsBtn.addEventListener('click', async () => {
@@ -638,13 +826,24 @@ function bindEvents() {
     // 保存语言偏好
     const language = el.languageSelect?.value || state.settings.language || 'zh';
 
+    // 更新自定义服务商元数据
+    const customProviders = { ...(state.settings.customProviders || {}) };
+    if (isCustomProvider(provider)) {
+      const id = getCustomProviderId(provider);
+      customProviders[id] = {
+        id,
+        name: el.customProviderNameInput.value.trim() || t('settings.customProvider'),
+        baseURL,
+      };
+    }
+
     state.settings = {
       provider,
       baseURL,
       apiKey,
       model,
       language,
-      customBaseURL: provider === 'custom' ? baseURL : '',
+      customBaseURL: '',
       _models: state.settings._models || [],
       apiKeys: {
         ...(state.settings.apiKeys || {}),
@@ -658,6 +857,7 @@ function bindEvents() {
         ...(state.settings.savedModelLists || {}),
         [provider]: state.settings._models || [],
       },
+      customProviders,
     };
 
     await Storage.saveSettings(state.settings);
@@ -741,14 +941,37 @@ async function init() {
   // 加载设置
   state.settings = await Storage.getSettings();
 
-  // 应用语言设置
+  // 应用语言设置（迁移前设置，保证默认名称使用当前语言）
   setLanguage(state.settings.language || 'zh');
+
+  // 迁移旧版单个 custom 服务商
+  const needsMigration =
+    state.settings.provider === 'custom' ||
+    state.settings.customBaseURL ||
+    state.settings.apiKeys?.custom;
+  state.settings = migrateLegacyCustomProvider(state.settings);
+  if (state.settings.provider === 'custom') {
+    state.settings.provider = Object.keys(PROVIDERS)[0];
+  }
+
+  // 同步当前激活服务商的运行时值
+  const provider = state.settings.provider;
+  state.settings.baseURL = getProviderBaseURL(provider);
+  state.settings.apiKey = getProviderAPIKey(provider);
+  state.settings.model = getProviderModel(provider);
+  state.settings._models = getProviderModelList(provider);
+
+  // 如果发生过迁移，持久化
+  if (needsMigration) {
+    await Storage.saveSettings(state.settings);
+  }
+
   applyLanguage();
   el.input.placeholder = t('chat.placeholder');
   el.apiKeyInput.placeholder = t('settings.apiKeyPH');
 
   // 检查是否已配置
-  if (!state.settings.apiKey) {
+  if (!state.settings.apiKey || !state.settings.model) {
     showSettingsPanel();
     return;
   }

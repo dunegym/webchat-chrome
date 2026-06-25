@@ -28,10 +28,6 @@ const PROVIDERS = {
     name: 'BigModel',
     baseURL: 'https://open.bigmodel.cn/api/paas/v4',
   },
-  custom: {
-    name: '自定义',
-    baseURL: '',
-  },
 };
 
 // ============= 默认设置 =============
@@ -45,6 +41,7 @@ const DEFAULT_SETTINGS = {
   apiKeys: {},
   savedModels: {},
   savedModelLists: {},
+  customProviders: {},
 };
 
 // ============= 多语言系统 =============
@@ -67,6 +64,11 @@ const STRINGS = {
       customBaseURLPH: '输入自定义 API Base URL',
       baseURLPH: 'API Base URL',
       apiKeyPH: 'sk-...',
+      customProviderName: '服务商名称',
+      addCustomProvider: '添加自定义服务商',
+      deleteCustomProvider: '删除当前服务商',
+      customProvider: '自定义',
+      customProviderNamePH: '例如：My API',
     },
     chat: {
       welcome: '💬 开始新对话吧',
@@ -103,6 +105,7 @@ const STRINGS = {
       fetchSuccess: '✅ 获取成功，共 {count} 个模型',
       fetchFailed: '❌ 获取失败: {msg}',
       deleteConfirm: '确定删除此对话？',
+      deleteCustomProviderConfirm: '确定删除该自定义服务商？',
     },
     system: {
       prompt: 'You are a helpful assistant.',
@@ -137,6 +140,11 @@ const STRINGS = {
       customBaseURLPH: 'Enter custom API Base URL',
       baseURLPH: 'API Base URL',
       apiKeyPH: 'sk-...',
+      customProviderName: 'Provider Name',
+      addCustomProvider: 'Add Custom Provider',
+      deleteCustomProvider: 'Delete Current Provider',
+      customProvider: 'Custom',
+      customProviderNamePH: 'e.g. My API',
     },
     chat: {
       welcome: '💬 Start a new conversation',
@@ -173,6 +181,7 @@ const STRINGS = {
       fetchSuccess: '✅ Successfully fetched {count} models',
       fetchFailed: '❌ Fetch failed: {msg}',
       deleteConfirm: 'Delete this conversation?',
+      deleteCustomProviderConfirm: 'Delete this custom provider?',
     },
     system: {
       prompt: 'You are a helpful assistant.',

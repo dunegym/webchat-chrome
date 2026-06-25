@@ -14,7 +14,8 @@
     "https://api.deepseek.com/*",
     "https://dashscope.aliyuncs.com/*",
     "https://api.minimaxi.com/*",
-    "https://open.bigmodel.cn/*"
+    "https://open.bigmodel.cn/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"

@@ -567,6 +567,9 @@ html, body {
 .model-row select {
   flex: 1;
 }
+.model-row .btn-secondary {
+  flex-shrink: 0;
+}
 
 /* ---------- Buttons ---------- */
 .settings-actions {
