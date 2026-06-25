@@ -41,7 +41,7 @@ const Renderer = {
   _extractLatex(content) {
     const latexMap = [];
     let counter = 0;
-    const SCROLL_THRESHOLD = 80;
+    const SCROLL_THRESHOLD = 60;
     const placeholder = (html, expr) => {
       const key = `\x00LATEX_${counter}\x00`;
       if (expr && expr.length > SCROLL_THRESHOLD) {
