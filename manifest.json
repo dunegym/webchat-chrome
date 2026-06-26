@@ -5,7 +5,9 @@
   "description": "侧栏 AI 对话插件，支持 OpenAI 格式 API，多服务商切换",
   "permissions": [
     "sidePanel",
-    "storage"
+    "storage",
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://api.openai.com/*",

@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS = {
   savedModels: {},
   savedModelLists: {},
   customProviders: {},
+  pageContextEnabled: false,
 };
 
 // ============= 多语言系统 =============
@@ -84,6 +85,8 @@ const STRINGS = {
       sessionList: '对话列表',
       close: '✕',
       modelIndicator: '{provider} / {model}',
+      pageContextOn: '📄 页面已读取',
+      pageContextOff: '📄 读取页面',
     },
     message: {
       userAvatar: '👤',
@@ -160,6 +163,8 @@ const STRINGS = {
       sessionList: 'Chat List',
       close: '✕',
       modelIndicator: '{provider} / {model}',
+      pageContextOn: '📄 Page read',
+      pageContextOff: '📄 Read page',
     },
     message: {
       userAvatar: '👤',

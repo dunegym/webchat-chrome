@@ -13,6 +13,7 @@ const state = {
   abortController: null,
   sessionsVisible: false,
   isInitialized: false,
+  pageContextEnabled: false,
 };
 
 // ============= DOM Refs =============
@@ -29,6 +30,7 @@ function cacheDom() {
   el.messagesContainer = $('#messages-container');
   el.input = $('#message-input');
   el.sendBtn = $('#send-btn');
+  el.pageContextBtn = $('#page-context-btn');
   el.newSessionBtn = $('#new-session-btn');
   el.settingsBtn = $('#settings-btn');
   el.toggleSessionsBtn = $('#toggle-sessions-btn');
@@ -396,6 +398,17 @@ async function sendToAPI() {
     // 在开头添加系统消息
     messages.unshift({ role: 'system', content: t('system.prompt') });
 
+    // 如果启用了页面内容读取，注入当前页面文本
+    if (state.pageContextEnabled) {
+      const pageText = await readPageContent();
+      if (pageText) {
+        messages.splice(1, 0, {
+          role: 'system',
+          content: `[Current page content]\n${pageText}`,
+        });
+      }
+    }
+
     // 粗略 token 估算：中文字符 ≈ 2 token，其他 ≈ 4 字符/token
     // 如果超过 120K token，截断早期的对话
     const MAX_TOKENS = 120000;
@@ -585,6 +598,61 @@ function escapeHtml(str) {
 function autoResizeInput() {
   el.input.style.height = 'auto';
   el.input.style.height = Math.min(el.input.scrollHeight, 200) + 'px';
+}
+
+// ============= Page Context =============
+/**
+ * 读取当前标签页的文本内容
+ * @returns {Promise<string>} 页面文本内容（截断至 8000 字符）
+ */
+async function readPageContent() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (!tab || !tab.id) return '';
+
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        // 尝试取 article / main 区域的内容，fallback 到 body
+        const main = document.querySelector('article') ||
+                     document.querySelector('main') ||
+                     document.querySelector('[role="main"]');
+        const source = main || document.body;
+        return source ? source.innerText || source.textContent || '' : '';
+      },
+    });
+
+    let text = '';
+    if (results?.[0]?.result) {
+      text = results[0].result;
+    }
+
+    // 清理空白、截断
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text.length > 30000) {
+      text = text.slice(0, 30000) + '...';
+    }
+    return text;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 更新页面读取按钮的外观
+ */
+function updatePageContextBtn() {
+  const btn = el.pageContextBtn;
+  if (!btn) return;
+  if (state.pageContextEnabled) {
+    btn.classList.add('active');
+    btn.dataset.i18nTitle = 'chat.pageContextOn';
+    btn.title = t('chat.pageContextOn');
+  } else {
+    btn.classList.remove('active');
+    btn.dataset.i18nTitle = 'chat.pageContextOff';
+    btn.title = t('chat.pageContextOff');
+  }
 }
 
 // ============= Event Bindings =============
@@ -844,6 +912,7 @@ function bindEvents() {
       model,
       language,
       customBaseURL: '',
+      pageContextEnabled: state.settings.pageContextEnabled || false,
       _models: state.settings._models || [],
       apiKeys: {
         ...(state.settings.apiKeys || {}),
@@ -897,10 +966,20 @@ function bindEvents() {
     el.input.placeholder = t('chat.placeholder');
     // 更新 API Key input placeholder
     el.apiKeyInput.placeholder = t('settings.apiKeyPH');
+    // 更新页面读取按钮
+    updatePageContextBtn();
   });
 
   // ---- Chat ----
   el.sendBtn.addEventListener('click', handleSend);
+
+  el.pageContextBtn?.addEventListener('click', async () => {
+    state.pageContextEnabled = !state.pageContextEnabled;
+    updatePageContextBtn();
+    // 持久化到设置
+    state.settings.pageContextEnabled = state.pageContextEnabled;
+    await Storage.saveSettings(state.settings);
+  });
 
   el.input.addEventListener('input', () => {
     el.sendBtn.disabled = !el.input.value.trim() || state.isStreaming;
@@ -960,6 +1039,7 @@ async function init() {
   state.settings.apiKey = getProviderAPIKey(provider);
   state.settings.model = getProviderModel(provider);
   state.settings._models = getProviderModelList(provider);
+  state.pageContextEnabled = state.settings.pageContextEnabled || false;
 
   // 如果发生过迁移，持久化
   if (needsMigration) {
@@ -969,6 +1049,7 @@ async function init() {
   applyLanguage();
   el.input.placeholder = t('chat.placeholder');
   el.apiKeyInput.placeholder = t('settings.apiKeyPH');
+  updatePageContextBtn();
 
   // 检查是否已配置
   if (!state.settings.apiKey || !state.settings.model) {
