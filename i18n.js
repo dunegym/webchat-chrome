@@ -28,6 +28,18 @@ const PROVIDERS = {
     name: 'BigModel',
     baseURL: 'https://open.bigmodel.cn/api/paas/v4',
   },
+  zai: {
+    name: 'Z.ai',
+    baseURL: 'https://api.z.ai/api/paas/v4',
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    baseURL: 'https://openrouter.ai/api/v1',
+  },
+  kimi: {
+    name: 'Kimi',
+    baseURL: 'https://api.moonshot.cn',
+  },
 };
 
 // ============= 默认设置 =============
