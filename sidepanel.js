@@ -193,10 +193,13 @@ function renderSettingsForm() {
 
 function updateBaseURLInput() {
   const provider = state.settings.provider;
+  const isCustom = isCustomProvider(provider);
   el.baseURLInput.value = getProviderBaseURL(provider);
-  el.baseURLInput.placeholder = isCustomProvider(provider)
+  el.baseURLInput.placeholder = isCustom
     ? t('settings.customBaseURLPH')
     : t('settings.baseURLPH');
+  // 内置服务商只读，自定义服务商可编辑
+  el.baseURLInput.readOnly = !isCustom;
 }
 
 // ============= Sessions UI =============

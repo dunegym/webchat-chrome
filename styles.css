@@ -570,6 +570,13 @@ html, body {
   border-color: var(--accent);
 }
 
+/* 只读输入框：内置服务商 Base URL */
+.form-group input[readonly] {
+  opacity: 0.7;
+  cursor: default;
+  background: var(--bg-secondary);
+}
+
 .form-group select {
   cursor: pointer;
   appearance: auto;
